@@ -73,9 +73,15 @@ async def upload_video(
             raise HTTPException(status_code=400, detail=validation_result["error"])
         
         # Generate unique filename
+        # Ensure upload directory exists
+        upload_dir = "app/static/uploads"
+        os.makedirs(upload_dir, exist_ok=True)
+        
         file_extension = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_path = f"app/static/uploads/{unique_filename}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        
+        print(f"Attempting to save file to: {os.path.abspath(file_path)}")  # Debug logging
         
         # Read and validate file size
         content = await file.read()
@@ -84,8 +90,13 @@ async def upload_video(
             raise HTTPException(status_code=400, detail=size_validation["error"])
         
         # Save file
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(content)
+            print("File saved successfully")
+        except Exception as e:
+            print(f"Error saving file: {e}")
+            raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
         
         # Create video record
         video = Video(
