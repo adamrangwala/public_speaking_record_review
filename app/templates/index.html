@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Video - Public Speaking Coach{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Hero Section -->
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">
+            Improve Your Public Speaking
+        </h1>
+        <p class="text-xl text-gray-600 mb-8">
+            Upload a video of your presentation and get detailed feedback through our three-view analysis system.
+        </p>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="card p-8 mb-8" x-data="uploadHandler()">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-6">Upload Your Video</h2>
+        
+        <form action="/upload" method="post" enctype="multipart/form-data" @submit="handleSubmit">
+            <!-- Drag & Drop Area -->
+            <div 
+                class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors"
+                :class="{'border-blue-500 bg-blue-50': isDragOver}"
+                @dragover.prevent="isDragOver = true"
+                @dragleave.prevent="isDragOver = false"
+                @drop.prevent="handleDrop"
+            >
+                <div class="mb-4">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-lg text-gray-600 mb-2">
+                        <span x-show="!selectedFile">Drag and drop your video here, or</span>
+                        <span x-show="selectedFile" x-text="selectedFile.name" class="font-medium text-blue-600"></span>
+                    </p>
+                    <button 
+                        type="button" 
+                        class="btn-primary text-white px-6 py-2 rounded-lg font-medium"
+                        @click="$refs.fileInput.click()"
+                    >
+                        Choose File
+                    </button>
+                </div>
+                
+                <input 
+                    type="file" 
+                    name="file" 
+                    accept=".mp4,video/mp4" 
+                    class="hidden" 
+                    x-ref="fileInput"
+                    @change="handleFileSelect"
+                    required
+                >
+                
+                <div class="text-sm text-gray-500">
+                    <p>MP4 files only • Maximum 50MB</p>
+                </div>
+            </div>
+
+            <!-- File Info -->
+            <div x-show="selectedFile" class="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-medium text-gray-900" x-text="selectedFile?.name"></p>
+                        <p class="text-sm text-gray-500" x-text="formatFileSize(selectedFile?.size)"></p>
+                    </div>
+                    <button 
+                        type="button" 
+                        @click="clearFile()" 
+                        class="text-red-600 hover:text-red-800"
+                    >
+                        Remove
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="mt-6">
+                <button 
+                    type="submit" 
+                    class="w-full btn-primary text-white py-3 px-6 rounded-lg font-medium text-lg"
+                    :disabled="!selectedFile || isUploading"
+                    :class="{'opacity-50 cursor-not-allowed': !selectedFile || isUploading}"
+                >
+                    <span x-show="!isUploading">Upload & Analyze Video</span>
+                    <span x-show="isUploading" class="flex items-center justify-center">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Features Section -->
+    <div class="grid md:grid-cols-3 gap-8">
+        <div class="card p-6 text-center">
+            <div class="text-3xl mb-4">🎥</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Video Analysis</h3>
+            <p class="text-gray-600">Review your body language, gestures, and overall presentation style.</p>
+        </div>
+        
+        <div class="card p-6 text-center">
+            <div class="text-3xl mb-4">🎵</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Audio Analysis</h3>
+            <p class="text-gray-600">Analyze your speaking pace, tone, and vocal patterns with waveform visualization.</p>
+        </div>
+        
+        <div class="card p-6 text-center">
+            <div class="text-3xl mb-4">📝</div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Content Review</h3>
+            <p class="text-gray-600">Reflect on your message structure and key points with guided prompts.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function uploadHandler() {
+    return {
+        selectedFile: null,
+        isDragOver: false,
+        isUploading: false,
+        
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            this.validateAndSetFile(file);
+        },
+        
+        handleDrop(event) {
+            this.isDragOver = false;
+            const file = event.dataTransfer.files[0];
+            this.validateAndSetFile(file);
+        },
+        
+        validateAndSetFile(file) {
+            if (!file) return;
+            
+            // Check file type
+            if (!file.type.startsWith('video/') || !file.name.toLowerCase().endsWith('.mp4')) {
+                alert('Please select an MP4 video file.');
+                return;
+            }
+            
+            // Check file size (50MB)
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert('File size must be less than 50MB.');
+                return;
+            }
+            
+            this.selectedFile = file;
+            // Update the file input
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            this.$refs.fileInput.files = dt.files;
+        },
+        
+        clearFile() {
+            this.selectedFile = null;
+            this.$refs.fileInput.value = '';
+        },
+        
+        formatFileSize(bytes) {
+            if (!bytes) return '';
+            const mb = bytes / (1024 * 1024);
+            return `${mb.toFixed(1)} MB`;
+        },
+        
+        handleSubmit(event) {
+            if (!this.selectedFile) {
+                event.preventDefault();
+                return;
+            }
+            this.isUploading = true;
+        }
+    }
+}
+</script>
+{% endblock %}

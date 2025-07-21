@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis - {{ video.original_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto" x-data="analysisHandler()">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Video Analysis</h1>
+                <p class="text-gray-600 mt-2">{{ video.original_name }}</p>
+                {% if video.duration %}
+                <p class="text-sm text-gray-500">Duration: {{ "%.1f"|format(video.duration) }} seconds</p>
+                {% endif %}
+            </div>
+            <div class="flex space-x-4">
+                <a href="/report/{{ video.id }}" class="btn-primary text-white px-4 py-2 rounded-lg font-medium">
+                    View Report
+                </a>
+                <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium">
+                    Upload New Video
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="mb-8">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8">
+                <button 
+                    @click="activeTab = 'video'"
+                    :class="activeTab === 'video' ? 'tab-active' : 'tab-inactive'"
+                    class="py-2 px-4 rounded-t-lg font-medium text-sm transition-colors"
+                >
+                    🎥 Video View
+                </button>
+                <button 
+                    @click="activeTab = 'audio'"
+                    :class="activeTab === 'audio' ? 'tab-active' : 'tab-inactive'"
+                    class="py-2 px-4 rounded-t-lg font-medium text-sm transition-colors"
+                >
+                    🎵 Audio View
+                </button>
+                <button 
+                    @click="activeTab = 'text'"
+                    :class="activeTab === 'text' ? 'tab-active' : 'tab-inactive'"
+                    class="py-2 px-4 rounded-t-lg font-medium text-sm transition-colors"
+                >
+                    📝 Text View
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Video View -->
+    <div x-show="activeTab === 'video'" class="grid lg:grid-cols-2 gap-8">
+        <!-- Video Player -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Video Player</h3>
+            <div class="relative">
+                <video
+                    id="mainVideo"
+                    controls
+                    muted
+                    class="w-full rounded-lg shadow-md bg-gray-100"
+                    preload="metadata"
+                    style="max-height: 400px;"
+                    onloadedmetadata="updateVideoInfo(this)"
+                    onerror="handleVideoError(this)"
+                    poster=""
+                >
+                    <source src="/static/uploads/{{ video.filename }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                
+                <!-- Video Info Overlay -->
+                <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium text-gray-900">{{ video.original_name }}</p>
+                            <p class="text-sm text-gray-500" id="videoInfo">
+                                Size: {{ "%.1f"|format(video.file_size / (1024*1024)) }} MB
+                                {% if video.duration %}
+                                • Duration: {{ "%.1f"|format(video.duration) }}s
+                                {% endif %}
+                                <span id="detectedDuration"></span>
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if video.status == 'completed' %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ video.status.title() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Notes -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Video Analysis Notes</h3>
+            <div class="space-y-6">
+                {% for prompt in video_prompts %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ prompt.question_text }}
+                    </label>
+                    <textarea 
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows="3"
+                        placeholder="Your thoughts..."
+                        x-model="notes[{{ prompt.id }}]"
+                        @blur="saveNote({{ video.id }}, {{ prompt.id }}, notes[{{ prompt.id }}])"
+                    >{{ notes_by_prompt.get(prompt.id, '') }}</textarea>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio View -->
+    <div x-show="activeTab === 'audio'" class="grid lg:grid-cols-2 gap-8">
+        <!-- Audio Player & Waveform -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Audio Analysis</h3>
+            
+            <!-- Audio Player -->
+            <div class="mb-6">
+                <audio
+                    controls
+                    class="w-full"
+                    preload="metadata"
+                >
+                    <source src="/video/{{ video.id }}" type="video/mp4">
+                    Your browser does not support the audio element.
+                </audio>
+                <p class="text-sm text-gray-500 mt-2">
+                    Note: Playing video audio (audio extraction will be added in future updates)
+                </p>
+            </div>
+
+            <!-- Simple Waveform Placeholder -->
+            <div class="bg-gray-100 rounded-lg p-4 h-32 flex items-center justify-center">
+                <div class="text-gray-500 text-center">
+                    <div class="mb-2">🎵</div>
+                    <p class="text-sm">Waveform visualization</p>
+                    <p class="text-xs text-gray-400">(Will be implemented with audio processing)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Notes -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Audio Analysis Notes</h3>
+            <div class="space-y-6">
+                {% for prompt in audio_prompts %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ prompt.question_text }}
+                    </label>
+                    <textarea 
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows="3"
+                        placeholder="Your thoughts..."
+                        x-model="notes[{{ prompt.id }}]"
+                        @blur="saveNote({{ video.id }}, {{ prompt.id }}, notes[{{ prompt.id }}])"
+                    >{{ notes_by_prompt.get(prompt.id, '') }}</textarea>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Text View -->
+    <div x-show="activeTab === 'text'" class="grid lg:grid-cols-2 gap-8">
+        <!-- Transcript Area -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Transcript</h3>
+            <p class="text-sm text-gray-600 mb-4">
+                For this MVP, please manually type or paste your presentation transcript below:
+            </p>
+            <textarea 
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="12"
+                placeholder="Type or paste your presentation transcript here..."
+                x-model="transcript"
+                @blur="saveTranscript()"
+            ></textarea>
+            <div class="mt-2 text-xs text-gray-500">
+                <span x-text="transcript.length"></span> characters
+            </div>
+        </div>
+
+        <!-- Text Notes -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Content Analysis Notes</h3>
+            <div class="space-y-6">
+                {% for prompt in text_prompts %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ prompt.question_text }}
+                    </label>
+                    <textarea 
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows="3"
+                        placeholder="Your thoughts..."
+                        x-model="notes[{{ prompt.id }}]"
+                        @blur="saveNote({{ video.id }}, {{ prompt.id }}, notes[{{ prompt.id }}])"
+                    >{{ notes_by_prompt.get(prompt.id, '') }}</textarea>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Status -->
+    <div 
+        x-show="saveStatus" 
+        x-transition
+        class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg"
+    >
+        <span x-text="saveStatus"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Video handling functions
+function updateVideoInfo(video) {
+    if (video.duration && !isNaN(video.duration)) {
+        const duration = video.duration;
+        const minutes = Math.floor(duration / 60);
+        const seconds = Math.floor(duration % 60);
+        const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        const detectedElement = document.getElementById('detectedDuration');
+        if (detectedElement) {
+            detectedElement.textContent = ` • Actual Duration: ${durationText}`;
+            detectedElement.className = 'text-green-600';
+        }
+        
+        // Remove background color once loaded and show success
+        video.style.backgroundColor = 'transparent';
+        video.style.border = '2px solid #10B981';
+        
+        console.log('Video loaded successfully:', duration, 'seconds');
+        
+        // Force video to show first frame
+        video.currentTime = 0.1;
+    }
+}
+
+function handleVideoError(video) {
+    console.error('Video failed to load');
+    const detectedElement = document.getElementById('detectedDuration');
+    if (detectedElement) {
+        detectedElement.textContent = ' • Error loading video';
+        detectedElement.className = 'text-red-500';
+    }
+    
+    // Show error styling
+    video.style.backgroundColor = '#FEE2E2';
+    video.style.border = '2px solid #EF4444';
+    
+    // Try to reload with different source
+    setTimeout(() => {
+        console.log('Attempting to reload video...');
+        video.load();
+    }, 1000);
+}
+
+// Additional function to ensure video loads properly
+function ensureVideoLoads() {
+    const video = document.getElementById('mainVideo');
+    if (video) {
+        // Force load
+        video.load();
+        
+        // Add additional event listeners
+        video.addEventListener('canplay', function() {
+            console.log('Video can start playing');
+            this.style.backgroundColor = 'transparent';
+        });
+        
+        video.addEventListener('loadstart', function() {
+            console.log('Video loading started');
+        });
+        
+        video.addEventListener('progress', function() {
+            console.log('Video loading progress');
+        });
+    }
+}
+
+// Call when page loads
+document.addEventListener('DOMContentLoaded', ensureVideoLoads);
+
+function analysisHandler() {
+    return {
+        activeTab: 'video',
+        notes: {},
+        transcript: '',
+        saveStatus: '',
+        
+        async saveNote(videoId, promptId, content) {
+            if (!content || content.trim() === '') return;
+            
+            try {
+                const formData = new FormData();
+                formData.append('video_id', videoId);
+                formData.append('prompt_id', promptId);
+                formData.append('content', content);
+                
+                const response = await fetch('/save_note', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    this.showSaveStatus('Note saved!');
+                } else {
+                    this.showSaveStatus('Error saving note');
+                }
+            } catch (error) {
+                console.error('Error saving note:', error);
+                this.showSaveStatus('Error saving note');
+            }
+        },
+        
+        async saveTranscript() {
+            // For MVP, transcript is just stored locally
+            // In future versions, this could be saved to the database
+            console.log('Transcript updated:', this.transcript.length, 'characters');
+        },
+        
+        showSaveStatus(message) {
+            this.saveStatus = message;
+            setTimeout(() => {
+                this.saveStatus = '';
+            }, 2000);
+        }
+    }
+}
+</script>
+{% endblock %}

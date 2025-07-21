@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Report - {{ video.original_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Analysis Report</h1>
+                <p class="text-gray-600 mt-2">{{ video.original_name }}</p>
+                {% if video.duration %}
+                <p class="text-sm text-gray-500">Duration: {{ "%.1f"|format(video.duration) }} seconds</p>
+                {% endif %}
+            </div>
+            <div class="flex space-x-4">
+                <a href="/analysis/{{ video.id }}" class="btn-primary text-white px-4 py-2 rounded-lg font-medium">
+                    Back to Analysis
+                </a>
+                <button 
+                    onclick="window.print()" 
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                    Print Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Card -->
+    <div class="card p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Summary</h2>
+        <div class="grid md:grid-cols-3 gap-6 text-center">
+            <div>
+                <div class="text-2xl font-bold text-blue-600">
+                    {{ notes_by_view.video|length }}
+                </div>
+                <div class="text-sm text-gray-600">Video Notes</div>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-purple-600">
+                    {{ notes_by_view.audio|length }}
+                </div>
+                <div class="text-sm text-gray-600">Audio Notes</div>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-green-600">
+                    {{ notes_by_view.text|length }}
+                </div>
+                <div class="text-sm text-gray-600">Content Notes</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Analysis Section -->
+    {% if notes_by_view.video %}
+    <div class="card p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            🎥 Video Analysis
+        </h2>
+        <div class="space-y-6">
+            {% for note in notes_by_view.video %}
+            <div class="border-l-4 border-blue-500 pl-4">
+                <h3 class="font-medium text-gray-900 mb-2">{{ note.prompt.question_text }}</h3>
+                <p class="text-gray-700 leading-relaxed">{{ note.content }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Audio Analysis Section -->
+    {% if notes_by_view.audio %}
+    <div class="card p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            🎵 Audio Analysis
+        </h2>
+        <div class="space-y-6">
+            {% for note in notes_by_view.audio %}
+            <div class="border-l-4 border-purple-500 pl-4">
+                <h3 class="font-medium text-gray-900 mb-2">{{ note.prompt.question_text }}</h3>
+                <p class="text-gray-700 leading-relaxed">{{ note.content }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Content Analysis Section -->
+    {% if notes_by_view.text %}
+    <div class="card p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            📝 Content Analysis
+        </h2>
+        <div class="space-y-6">
+            {% for note in notes_by_view.text %}
+            <div class="border-l-4 border-green-500 pl-4">
+                <h3 class="font-medium text-gray-900 mb-2">{{ note.prompt.question_text }}</h3>
+                <p class="text-gray-700 leading-relaxed">{{ note.content }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- No Notes Message -->
+    {% if not notes_by_view.video and not notes_by_view.audio and not notes_by_view.text %}
+    <div class="card p-8 text-center">
+        <div class="text-gray-400 text-4xl mb-4">📝</div>
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">No Notes Yet</h2>
+        <p class="text-gray-600 mb-6">
+            You haven't added any analysis notes yet. Go back to the analysis page to start reviewing your presentation.
+        </p>
+        <a href="/analysis/{{ video.id }}" class="btn-primary text-white px-6 py-3 rounded-lg font-medium">
+            Start Analysis
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="flex justify-center space-x-4 mt-8">
+        <button 
+            onclick="copyReport()" 
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium"
+        >
+            Copy to Clipboard
+        </button>
+        <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium">
+            Upload New Video
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyReport() {
+    // Get the report content from the DOM
+    const reportContent = document.querySelector('.max-w-4xl').innerText;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(reportContent).then(function() {
+        // Show success message
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        button.classList.add('bg-green-500');
+        button.classList.remove('bg-blue-500');
+        
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('bg-green-500');
+            button.classList.add('bg-blue-500');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Could not copy text: ', err);
+        alert('Failed to copy report to clipboard');
+    });
+}
+</script>
+
+<style>
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        background: white !important;
+    }
+    
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #e5e7eb !important;
+    }
+}
+</style>
+{% endblock %}
