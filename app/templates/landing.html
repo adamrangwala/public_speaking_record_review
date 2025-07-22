@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1>Public Speaking Coach</h1>
+  <div class="features">
+    <div class="feature">
+      <h3>Record & Analyze</h3>
+      <p>Upload your practice sessions for detailed feedback</p>
+    </div>
+    <div class="feature">
+      <h3>Track Progress</h3>
+      <p>Save notes and compare performances over time</p>
+    </div>
+  </div>
+  <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Get Started</a>
+</div>
+{% endblock %}

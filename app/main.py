@@ -55,9 +55,32 @@ def init_prompts(db: Session):
     db.commit()
 
 @app.get("/", response_class=HTMLResponse)
+async def landing(request: Request):
+    """Landing page for new visitors"""
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+@app.get("/app", response_class=HTMLResponse)
 async def homepage(request: Request):
-    """Homepage with upload form"""
+    """Main application dashboard"""
+    if not current_user.is_authenticated:
+        return RedirectResponse(url="/login")
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/profile", response_class=HTMLResponse)
+@login_required
+async def profile(request: Request, db: Session = Depends(get_db)):
+    """User profile page"""
+    video_count = db.query(Video).filter(Video.user_id == current_user.id).count()
+    note_count = db.query(Note).join(Video).filter(Video.user_id == current_user.id).count()
+    
+    return templates.TemplateResponse(
+        "profile.html",
+        {
+            "request": request,
+            "video_count": video_count,
+            "note_count": note_count
+        }
+    )
 
 @app.post("/upload")
 async def upload_video(
@@ -91,11 +114,24 @@ async def upload_video(
         
         # Save file
         try:
+            print(f"Attempting to write to: {file_path}")
+            print(f"Content size: {len(content)} bytes")
+            
             with open(file_path, "wb") as buffer:
-                buffer.write(content)
-            print("File saved successfully")
+                bytes_written = buffer.write(content)
+                print(f"Successfully wrote {bytes_written} bytes to {file_path}")
+                
+            # Verify file exists and has content
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                print(f"File verification: {file_path} exists with size {file_size} bytes")
+            else:
+                print(f"ERROR: File {file_path} was not created")
+                raise HTTPException(status_code=500, detail="File was not created on disk")
+                
         except Exception as e:
-            print(f"Error saving file: {e}")
+            print(f"Error saving file: {type(e).__name__}: {e}")
+            print(f"Full path attempted: {os.path.abspath(file_path)}")
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
         
         # Create video record
@@ -217,12 +253,25 @@ async def report_page(
         "notes_by_view": notes_by_view
     })
 
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
+
+security = HTTPBearer()
+
 @app.get("/video/{video_id}")
-async def serve_video(video_id: int, db: Session = Depends(get_db)):
+async def serve_video(
+    video_id: int,
+    db: Session = Depends(get_db),
+    credentials: HTTPBearer = Depends(security)
+):
     """Serve video file with proper headers for HTML5 video playback"""
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
+    
+    # Verify video ownership
+    if video.user_id != int(credentials.credentials):
+        raise HTTPException(status_code=403, detail="Not authorized to access this video")
     
     file_path = f"app/static/uploads/{video.filename}"
     if not os.path.exists(file_path):

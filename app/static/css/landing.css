@@ -1,0 +1,25 @@
+.container {
+  max-width: 800px;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.features {
+  display: flex;
+  gap: 2rem;
+  margin: 3rem 0;
+  justify-content: center;
+}
+
+.feature {
+  flex: 1;
+  padding: 1.5rem;
+  border-radius: 8px;
+  background: #f8f9fa;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+}

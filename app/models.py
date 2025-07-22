@@ -2,6 +2,26 @@ from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, 
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+from flask_login import UserMixin
+
+class User(UserMixin, Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(120), unique=True, index=True)
+    password_hash = Column(String(128))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    videos = relationship("Video", back_populates="user")
+    
+    def set_password(self, password):
+        from werkzeug.security import generate_password_hash
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.password_hash, password)
 
 class Video(Base):
     __tablename__ = "videos"
@@ -13,8 +33,10 @@ class Video(Base):
     duration = Column(Float, nullable=True)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String, default="uploaded")  # uploaded, processing, completed, error
+    user_id = Column(Integer, ForeignKey("users.id"))
     
-    # Relationship with notes
+    # Relationships
+    user = relationship("User", back_populates="videos")
     notes = relationship("Note", back_populates="video", cascade="all, delete-orphan")
 
 class Note(Base):
