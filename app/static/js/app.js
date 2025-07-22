@@ -138,12 +138,68 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize any video elements
     const videos = document.querySelectorAll('video');
     videos.forEach(video => {
+        // Add video ID data attribute if missing
+        if (!video.dataset.videoId && video.id === 'mainVideo') {
+            const videoId = new URLSearchParams(window.location.search).get('videoId') ||
+                          video.src.split('/').pop().split('.')[0];
+            video.dataset.videoId = videoId;
+        }
+
+        // Track video events
         video.addEventListener('loadedmetadata', function() {
             console.log('Video loaded:', this.duration, 'seconds');
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'video_ready', {
+                    'video_id': this.dataset.videoId,
+                    'duration': this.duration
+                });
+            }
+        });
+        
+        video.addEventListener('play', function() {
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'video_play', {
+                    'video_id': this.dataset.videoId,
+                    'duration': this.duration
+                });
+            }
+        });
+
+        // Track progress at 25%, 50%, 75%, 100%
+        const progressPoints = [0.25, 0.5, 0.75, 1];
+        const trackedPoints = new Set();
+        
+        video.addEventListener('timeupdate', function() {
+            const progress = this.currentTime / this.duration;
+            progressPoints.forEach(point => {
+                if (progress >= point && !trackedPoints.has(point)) {
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'video_progress', {
+                            'video_id': this.dataset.videoId,
+                            'progress': `${point * 100}%`,
+                            'current_time': this.currentTime
+                        });
+                    }
+                    trackedPoints.add(point);
+                }
+            });
+        });
+
+        video.addEventListener('ended', function() {
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'video_complete', {
+                    'video_id': this.dataset.videoId
+                });
+            }
         });
         
         video.addEventListener('error', function() {
             showNotification('Error loading video', 'error');
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'video_error', {
+                    'video_id': this.dataset.videoId
+                });
+            }
         });
     });
     
